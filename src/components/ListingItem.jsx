@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import { ReactComponent as DeleteIcon } from "../assets/svg/deleteIcon.svg";
 import bedIcon from "../assets/svg/bedIcon.svg";
 import bathtubIcon from "../assets/svg/bathtubIcon.svg";
+import formatMoney from "../utils";
+
 const ListingItem = ({ listing, id, onDelete }) => {
   return (
     <li className="categoryListing">
@@ -10,7 +12,7 @@ const ListingItem = ({ listing, id, onDelete }) => {
         className="categoryListingLink"
       >
         <img
-          src={listing.imageUrls[0]}
+          src={listing.imgUrls[0]}
           alt={listing.name}
           className="categoryListingImg"
         />
@@ -18,14 +20,9 @@ const ListingItem = ({ listing, id, onDelete }) => {
           <p className="categoryListingLocation">{listing.location}</p>
           <p className="categoryListingName">{listing.name}</p>
           <p className="categoryListingPrice">
-            $
             {listing.offer
-              ? listing.discountedPrice
-                  .toString()
-                  .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-              : listing.regularPrice
-                  .toString()
-                  .replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+              ? formatMoney(listing.discountedPrice)
+              : formatMoney(listing.regularPrice)}
             {listing.type === "rent" && " / Month"}
           </p>
           <div className="categoryListingInfoDiv">
