@@ -1,60 +1,25 @@
-import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  limit,
-  startAfter,
-} from "firebase/firestore";
-import { db } from "../firebase.config";
+
 import { toast } from "react-toastify";
 import Spinner from "../components/Spinner";
 import ListingItem from "../components/ListingItem";
+import { useCollection } from "../hooks/useCollection";
 
 const Offers = () => {
-  const [listings, setListings] = useState(null);
-  const [loading, setLoading] = useState(true);
-
   const params = useParams();
+  const {
+    documents: listings,
+    error,
+    isPending: loading,
+  } = useCollection(
+    "listings",
+    ["offer", "==", true],
+    ["timestamp", "desc"],
+    10
+  );
 
-  useEffect(() => {
-    const fetchListings = async () => {
-      try {
-        // get reference
-        const listingsRef = collection(db, "listings");
-
-        // Create a query
-        const q = query(
-          listingsRef,
-          where("offer", "==", true),
-          orderBy("timestamp", "desc"),
-          limit(10)
-        );
-
-        // Execute query
-        const querySnap = await getDocs(q);
-
-        let listings = [];
-
-        querySnap.forEach((doc) => {
-          return listings.push({
-            data: doc.data(),
-            id: doc.id,
-          });
-        });
-
-        setListings(listings);
-        setLoading(false);
-      } catch (error) {
-        toast.error("Could not fetch listings");
-      }
-    };
-
-    fetchListings();
-  }, []);
+  if (loading) return <Spinner />;
+  if (error) return toast.error("Could not fetch listings");
 
   return (
     <div className="category">
@@ -70,7 +35,7 @@ const Offers = () => {
             <ul className="categoryListings">
               {listings.map((listing) => (
                 <ListingItem
-                  listing={listing.data}
+                  listing={listing}
                   id={listing.id}
                   key={listing.id}
                 />

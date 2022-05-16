@@ -1,31 +1,18 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../firebase.config";
+
 import { toast } from "react-toastify";
+import { useDocument } from "../hooks/useDocument";
 
 const Contact = () => {
   const [message, setMessage] = useState("");
-  const [landlord, setLandlord] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
-
   const params = useParams();
+  const { document: landlord, error } = useDocument("users", params.landlordId);
 
-  useEffect(() => {
-    const getLandlord = async () => {
-      const docRef = doc(db, "users", params.landlordId);
-      console.log(params.landlordId);
-      const docSnap = await getDoc(docRef);
-
-      if (docSnap.exists()) {
-        setLandlord(docSnap.data());
-      } else {
-        toast.error("Could not get landlord data");
-      }
-    };
-
-    getLandlord();
-  }, [params.landlordId]);
+  if (error) {
+    toast.error("Could not get landlord data");
+  }
 
   const onChange = (e) => setMessage(e.target.value);
 
@@ -56,7 +43,7 @@ const Contact = () => {
               </div>
             </div>
             <a
-              href={`mailto:${landlord.email}?Subject=${searchParams.get(
+              href={`mailto:${landlord?.email}?Subject=${searchParams.get(
                 "listingName"
               )}&body=${message}`}
             >
