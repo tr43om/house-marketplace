@@ -6,16 +6,34 @@ import {
   uploadBytesResumable,
   getDownloadURL,
 } from "firebase/storage";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db } from "../firebase.config";
-import { useNavigate } from "react-router-dom";
+import { serverTimestamp } from "firebase/firestore";
+import { useNavigate, useParams } from "react-router-dom";
 import Spinner from "../components/Spinner";
 import { toast } from "react-toastify";
 import { v4 as uuidv4 } from "uuid";
+import { useDocument } from "../hooks/useDocument";
+import { useFirestore } from "../hooks/useFirestore";
+import { ReactComponent as DeleteIcon } from "../assets/svg/rectangle-xmark-solid.svg";
 
-const CreateListing = () => {
+import { Navigation, Pagination, Scrollbar, A11y } from "swiper";
+import { Swiper, SwiperSlide } from "swiper/react";
+// Import Swiper styles
+import "swiper/css";
+import "swiper/css/navigation";
+import "swiper/css/pagination";
+import "swiper/css/scrollbar";
+
+const EditListing = () => {
   const [geolocationEnabled, setGeolocationEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
+  const params = useParams();
+  const {
+    document: listing,
+    isPending,
+    error,
+  } = useDocument("listings", params.listingId);
+
+  const { updateDocument: updateListing } = useFirestore("listings");
 
   const [formData, setFormData] = useState({
     type: "rent",
@@ -28,6 +46,7 @@ const CreateListing = () => {
     offer: false,
     regularPrice: 0,
     discountedPrice: 0,
+    imgUrls: [],
     images: {},
     latitude: 0,
     longitude: 0,
@@ -45,6 +64,7 @@ const CreateListing = () => {
     regularPrice,
     discountedPrice,
     images,
+    imgUrls,
     latitude,
     longitude,
   } = formData;
@@ -53,16 +73,18 @@ const CreateListing = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setFormData({ ...formData, userRef: user.uid });
-      } else {
-        navigate("/sign-in");
-      }
-    });
-
-    return unsub;
-  }, []);
+    if (listing && listing.userRef !== auth.currentUser.uid) {
+      toast.error("You can not edit that listing");
+      navigate("/");
+    }
+    if (listing) {
+      setFormData({
+        ...listing,
+        imgUrls: listing.imgUrls,
+        address: listing.location,
+      });
+    }
+  }, [listing]);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -75,7 +97,7 @@ const CreateListing = () => {
       return;
     }
 
-    if (images.length > 6) {
+    if (images?.length > 6) {
       setLoading(false);
       toast.error("Max 6 images");
       return;
@@ -151,18 +173,21 @@ const CreateListing = () => {
       });
     };
 
-    const imgUrls = await Promise.all(
-      [...images].map((image) => storeImage(image))
-    ).catch(() => {
-      setLoading(false);
-      toast.error("Images not uploaded");
-      return;
-    });
+    let uploadedImages = [];
+    if (images) {
+      uploadedImages = await Promise.all(
+        [...images].map((image) => storeImage(image))
+      ).catch(() => {
+        setLoading(false);
+        toast.error("Images not uploaded");
+        return;
+      });
+    }
 
     const formDataCopy = {
       ...formData,
-      imgUrls,
       geolocation,
+      imgUrls: [...imgUrls, ...uploadedImages],
       timestamp: serverTimestamp(),
     };
 
@@ -172,11 +197,11 @@ const CreateListing = () => {
     location && (formDataCopy.location = location);
     !formDataCopy.offer && delete formDataCopy.discountedPrice;
 
-    const docRef = await addDoc(collection(db, "listings"), formDataCopy);
+    await updateListing(params.listingId, formDataCopy);
     setLoading(false);
 
     toast.success("Listing saved");
-    navigate(`/category/${formDataCopy.type}/${docRef.id}`);
+    navigate(`/category/${formDataCopy.type}/${params.listingId}`);
   };
 
   const onMutate = (e) => {
@@ -206,13 +231,22 @@ const CreateListing = () => {
     }
   };
 
-  if (loading) {
+  const onDeleteImg = (img) => {
+    const imagesArray = imgUrls.filter((image) => image !== img);
+    setFormData((prevState) => ({
+      ...prevState,
+      imgUrls: imagesArray,
+    }));
+  };
+
+  if (loading || isPending) {
     return <Spinner />;
   }
+
   return (
     <div className="profile">
       <header>
-        <p className="pageHeader">Create a Listing</p>
+        <p className="pageHeader">Edit a Listing</p>
       </header>
 
       <main>
@@ -425,8 +459,39 @@ const CreateListing = () => {
 
           <label className="formLabel">Images</label>
           <p className="imagesInfo">
-            The first image will be the cover (max 6).
+            You can add new images or delete old ones. The first image will be
+            the cover (max 6).
           </p>
+          <Swiper
+            modules={[Navigation, Pagination, Scrollbar, A11y]}
+            slidesPerView={3}
+            spaceBetween={50}
+            navigation={{ clickable: true }}
+            className="swiper-container "
+          >
+            {imgUrls.map((image) => (
+              <SwiperSlide key={image}>
+                <div
+                  style={{
+                    background: `url(${image}) center no-repeat`,
+                    backgroundSize: "cover",
+                    position: "relative",
+                  }}
+                  className="swiperSlideDiv"
+                >
+                  <DeleteIcon
+                    className="removeIcon"
+                    width={20}
+                    height={20}
+                    fill="rgb(231, 76, 60)"
+                    style={{ top: "0", right: "0" }}
+                    onClick={(e) => onDeleteImg(image)}
+                  />
+                </div>
+              </SwiperSlide>
+            ))}
+          </Swiper>
+
           <input
             className="formInputFile"
             type="file"
@@ -435,14 +500,13 @@ const CreateListing = () => {
             max="6"
             accept=".jpg,.png,.jpeg"
             multiple
-            required
           />
           <button type="submit" className="primaryButton createListingButton">
-            Create Listing
+            Edit Listing
           </button>
         </form>
       </main>
     </div>
   );
 };
-export default CreateListing;
+export default EditListing;

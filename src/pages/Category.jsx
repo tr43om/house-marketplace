@@ -1,24 +1,29 @@
 import { useParams } from "react-router-dom";
-import { toast } from "react-toastify";
 import Spinner from "../components/Spinner";
 import ListingItem from "../components/ListingItem";
 import { useCollection } from "../hooks/useCollection";
 
 const Category = () => {
   const params = useParams();
+  // const [listings, setListings] = useState(null);
   const {
     documents: listings,
-    error,
     isPending: loading,
+    loadMore,
+
+    documentsLength,
   } = useCollection(
     "listings",
     ["type", "==", params.categoryName],
     ["timestamp", "desc"],
-    10
+    1
   );
 
+  if (listings) {
+    console.log(documentsLength);
+  }
+
   if (loading) return <Spinner />;
-  if (error) return toast.error("Could not fetch listings");
 
   return (
     <div className="category">
@@ -45,6 +50,13 @@ const Category = () => {
               ))}
             </ul>
           </main>
+          <br />
+          <br />
+          {documentsLength !== listings.length && (
+            <div className="loadMore" onClick={loadMore}>
+              Load more...
+            </div>
+          )}
         </>
       ) : (
         <p>No listings for {params.categoryName}</p>

@@ -4,5 +4,6 @@ const formatter = new Intl.NumberFormat("en-US", {
 });
 
 export default function formatMoney(cost) {
+  if (!cost) return undefined;
   return formatter.format(cost);
 }

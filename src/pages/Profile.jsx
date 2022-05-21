@@ -1,16 +1,35 @@
 import { useState } from "react";
 import { getAuth, updateProfile } from "firebase/auth";
+import { getStorage, ref, deleteObject } from "firebase/storage";
 import { updateDoc, doc } from "firebase/firestore";
+
 import { db } from "../firebase.config";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Link } from "react-router-dom";
+import { useCollection } from "../hooks/useCollection";
+import { useFirestore } from "../hooks/useFirestore";
+import ListingItem from "../components/ListingItem";
+import Spinner from "../components/Spinner";
 import arrowRight from "../assets/svg/keyboardArrowRightIcon.svg";
 import homeIcon from "../assets/svg/homeIcon.svg";
 
 const Profile = () => {
   const auth = getAuth();
+  const storage = getStorage();
+  const { deleteDocument: deleteListing } = useFirestore("listings");
   const [changeDetails, setChangeDetails] = useState(false);
+
+  const {
+    documents: listings,
+    error,
+    isPending: loading,
+  } = useCollection(
+    "listings",
+    ["userRef", "==", auth.currentUser.uid],
+    ["timestamp", "desc"]
+  );
+
   const [formData, setFormData] = useState({
     name: auth.currentUser.displayName,
     email: auth.currentUser.email,
@@ -25,7 +44,7 @@ const Profile = () => {
     navigate("/");
   };
 
-  const onSubmit = async (e) => {
+  const onSubmit = async () => {
     try {
       if (auth.currentUser.displayName !== name) {
         // update display name in fb
@@ -51,6 +70,37 @@ const Profile = () => {
       [e.target.id]: e.target.value,
     }));
   };
+
+  const onDelete = async (listing) => {
+    if (window.confirm("Are you sure you want to delete?")) {
+      const deleteImages = () => {
+        // Delete images from storage
+        listing.imgUrls.forEach((image) => {
+          const pathName = image
+            .split("/")
+            .pop()
+            .split("#")[0]
+            .split("?")[0]
+            .replace("%2F", "/");
+
+          const imageRef = ref(storage, pathName);
+
+          deleteObject(imageRef);
+        });
+
+        toast.success("Images deleted");
+      };
+
+      deleteImages();
+
+      // Delete listing from firestore
+      await deleteListing(listing.id);
+      toast.success("Successfully deleted listing");
+    }
+  };
+
+  const onEdit = (listingId) => navigate(`/edit-listing/${listingId}`);
+  if (loading) return <Spinner />;
 
   return (
     <div className="profile">
@@ -100,6 +150,25 @@ const Profile = () => {
           <p>Sell or rent your home</p>
           <img src={arrowRight} alt="arrow right" />
         </Link>
+
+        {!loading && listings?.length > 0 && (
+          <>
+            <p className="listingText">Your Listings</p>
+            {!error && (
+              <ul className="listingsList">
+                {listings.map((listing) => (
+                  <ListingItem
+                    key={listing.id}
+                    listing={listing}
+                    id={listing.id}
+                    onDelete={onDelete}
+                    onEdit={onEdit}
+                  />
+                ))}
+              </ul>
+            )}
+          </>
+        )}
       </main>
     </div>
   );

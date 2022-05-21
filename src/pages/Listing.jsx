@@ -18,8 +18,6 @@ import { useDocument } from "../hooks/useDocument";
 import { toast } from "react-toastify";
 
 const Listing = () => {
-  // const [listing, setListing] = useState(null);
-  // const [loading, setLoading] = useState(true);
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
 
   const params = useParams();

@@ -793,6 +793,13 @@ button {
   opacity: 0.75;
 }
 
+.imagesContainer {
+  display: flex;
+  height: 15rem;
+  flex-wrap: wrap;
+  gap: 2rem;
+}
+
 .formInputFile {
   width: 100%;
 }
